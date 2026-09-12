@@ -40,3 +40,10 @@ def test_raiz_de_pasta_e_a_pasta_de_entrada_mesmo_para_arquivo_aninhado(tmp_path
     make_docx(tmp_path / "sub", "b.docx", "# B\n\ntexto\n")
     [(_, raiz)] = gather([str(tmp_path)])
     assert raiz == tmp_path
+
+
+def test_mesmo_arquivo_com_grafias_de_caminho_diferentes_nao_duplica(tmp_path):
+    docx = make_docx(tmp_path / "sub", "b.docx", "# B\n\ntexto\n")
+    caminho_com_volta = tmp_path / "sub" / ".." / "sub" / "b.docx"
+    achados = gather([str(docx), str(caminho_com_volta)])
+    assert [f for f, _ in achados] == [docx]

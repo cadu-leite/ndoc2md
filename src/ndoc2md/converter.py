@@ -77,7 +77,7 @@ def _drop_img_tags(md: str) -> str:
     O writer GFM do pandoc referencia a imagem embutida do `.docx` (ex.:
     `<img src="media/rId20.png" .../>`) independente de `--extract-media` ter
     sido passado — sem essa flag, a imagem nunca é escrita em disco, e o link
-    fica quebrado (erro 11 do docs/erros-conhecidos.md). Chamar só quando
+    fica quebrado (erro 11). Chamar só quando
     `extract_media=False`, para que a imagem "saia" do `.md` sem deixar link
     órfão, do mesmo jeito que o caminho de PDF já se comporta.
     """
@@ -110,7 +110,7 @@ def _warn_empty_pages(src: Path, chunks: list[dict]) -> str:
     O `pymupdf4llm` descarta traço/preenchimento vetorial isolado (uma forma
     sozinha, sem se agrupar com outras) por achar que é "açúcar" decorativo —
     e não avisa quando isso deixa a página inteira sem nada reconhecível
-    (erro 12 do docs/erros-conhecidos.md). Aqui a gente cruza cada página vazia
+    (erro 12). Aqui a gente cruza cada página vazia
     do resultado com `page.get_drawings()` na própria fonte: se a página tem
     desenho vetorial e ainda assim não sobrou texto, imagem nem tabela, isso
     quase certo é conteúdo perdido — não uma página em branco de verdade.
@@ -159,11 +159,29 @@ def _run_pdf(src: Path, media_dir: Path | None) -> tuple[str, Path | None]:
         dpi=150,
     )
     md = _warn_empty_pages(src, chunks)
-    # pymupdf4llm insere o próprio image_path como prefixo do link; torná-lo
-    # relativo à pasta do .md (o .md e a pasta de mídia são irmãos).
+    # pymupdf4llm insere o próprio image_path como prefixo do link, sempre como
+    # `![](<prefixo>/arquivo.png)` (única sintaxe de imagem que ele emite); torná-lo
+    # relativo à pasta do .md (o .md e a pasta de mídia são irmãos) mirando só essa
+    # sintaxe, para não reescrever o caminho se ele aparecer no texto do documento.
     prefix = str(media_dir)
-    md = md.replace(prefix + "/", media_dir.name + "/").replace(prefix, media_dir.name)
+    # `![]( ... )` sempre sozinho na linha (pymupdf4llm emite exatamente
+    # "\n![](%s)\n") — casar a linha inteira, com `.*` guloso até o `)` final,
+    # em vez de `[^)]*`, porque o nome do arquivo de origem pode ter parênteses.
+    img_tag = re.compile(r"^!\[\]\(" + re.escape(prefix) + r"/?(.*)\)$", re.MULTILINE)
+    md = img_tag.sub(lambda m: f"![]({media_dir.name}/{m.group(1)})", md)
     return md, (media_dir if media_dir.is_dir() else None)
+
+
+def _primeiro_ancestral_ausente(dir_: Path) -> Path | None:
+    """Acha o ancestral mais alto de `dir_` que ainda não existe (o que `mkdir(parents=True)`
+    criaria primeiro), ou `None` se `dir_` já existe. Serve para desfazer só a árvore nova
+    criada por um `mkdir(parents=True)`, sem tocar em nada que já existia antes dele."""
+    if dir_.exists():
+        return None
+    atual = dir_
+    while atual.parent != atual and not atual.parent.exists():
+        atual = atual.parent
+    return atual
 
 
 def resolve_dst(
@@ -233,23 +251,34 @@ def convert_file(
 
     dst = resolve_dst(src, output_dir, input_root)
     dst_dir = dst.parent
-    dst_dir.mkdir(parents=True, exist_ok=True)
     if dst.exists() and not overwrite:
         raise ConversionError(f"já existe (use --overwrite): {dst}")
 
+    # dst_dir precisa existir antes do engine rodar (pandoc usa cwd=dst_dir; o
+    # pymupdf4llm cria a própria media_dir mas exige que o pai já exista). Guarda
+    # o topo da árvore nova para desfazer se a conversão falhar depois, em vez de
+    # deixar pasta vazia (ou parcialmente escrita) pra trás.
+    topo_novo = _primeiro_ancestral_ausente(dst_dir)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+
     media_dir: Path | None = None
-    if ext == PDF_EXT:
-        pdf_media = dst_dir / f"{src.name}_media" if extract_media else None
-        md, media_dir = _run_pdf(src, pdf_media)
-        engine = "pymupdf4llm"
-    else:
-        media_name = f"{src.name}_media" if extract_media else None
-        md = _run_pandoc(src, PANDOC_FORMATS[ext], cwd=dst_dir, media_dir_name=media_name)
-        engine = "pandoc"
-        if media_name and (dst_dir / media_name).is_dir():
-            media_dir = dst_dir / media_name
-        if not extract_media:
-            md = _drop_img_tags(md)
+    try:
+        if ext == PDF_EXT:
+            pdf_media = dst_dir / f"{src.name}_media" if extract_media else None
+            md, media_dir = _run_pdf(src, pdf_media)
+            engine = "pymupdf4llm"
+        else:
+            media_name = f"{src.name}_media" if extract_media else None
+            md = _run_pandoc(src, PANDOC_FORMATS[ext], cwd=dst_dir, media_dir_name=media_name)
+            engine = "pandoc"
+            if media_name and (dst_dir / media_name).is_dir():
+                media_dir = dst_dir / media_name
+            if not extract_media:
+                md = _drop_img_tags(md)
+    except Exception:
+        if topo_novo is not None:
+            shutil.rmtree(topo_novo, ignore_errors=True)
+        raise
 
     removed = 0
     if clean_toc:
@@ -264,7 +293,7 @@ def check_path(paths: list[str | Path]) -> None:
 
     Lança `ConversionError`, listando todos os que não existem, se algum faltar —
     para que um erro de digitação pare o lote inteiro em vez de ser silenciosamente
-    ignorado (erro 3 do docs/erros-conhecidos.md). Chamar antes de `gather`, que
+    ignorado (erro 3). Chamar antes de `gather`, que
     por si só descarta caminho inexistente sem avisar.
     """
     ausentes = [str(p) for p in paths if not Path(p).exists()]
@@ -285,8 +314,9 @@ def gather(paths, recursive: bool = True) -> list[tuple[Path, Path]]:
     seen: set[Path] = set()
 
     def add(f: Path, root: Path) -> None:
-        if f not in seen:
-            seen.add(f)
+        key = f.resolve()
+        if key not in seen:
+            seen.add(key)
             found.append((f, root))
 
     for raw in paths:

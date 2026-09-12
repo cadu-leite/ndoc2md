@@ -31,7 +31,7 @@ def test_nenhum_arquivo_suportado_retorna_diferente_de_zero(tmp_path):
 
 
 def test_colisao_entre_raizes_e_barrada_antes_de_converter(tmp_path, capsys):
-    """Erro 1 do docs/erros-conhecidos.md, resolvido: alerta e não converte nada do lote."""
+    """Erro 1, resolvido: alerta e não converte nada do lote."""
     make_docx(tmp_path / "r1", "a.docx", "# UM\n\nconteudo um\n")
     make_docx(tmp_path / "r2", "a.docx", "# DOIS\n\nconteudo dois\n")
     saida = tmp_path / "saida"
@@ -45,7 +45,7 @@ def test_colisao_entre_raizes_e_barrada_antes_de_converter(tmp_path, capsys):
 
 
 def test_caminho_inexistente_barra_a_conversao_do_lote(tmp_path, capsys):
-    """Erro 3 do docs/erros-conhecidos.md, resolvido: nenhum caminho pode faltar, nem os que existem convertem."""
+    """Erro 3, resolvido: nenhum caminho pode faltar, nem os que existem convertem."""
     docx = make_docx(tmp_path, "a.docx", "# A\n\ntexto\n")
     inexistente = tmp_path / "NAO_EXISTE.docx"
 

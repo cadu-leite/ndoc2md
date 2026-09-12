@@ -54,8 +54,19 @@ def test_overwrite_sobrescreve_md_existente(basic_docx):
     assert res.output.exists()
 
 
+def test_falha_na_conversao_nao_deixa_pasta_de_saida_vazia(tmp_path):
+    invalido = tmp_path / "invalido.docx"
+    invalido.write_text("isto não é um docx de verdade")
+    saida = tmp_path / "brand" / "new" / "output"
+
+    with pytest.raises(ConversionError):
+        convert_file(invalido, saida, overwrite=True)
+
+    assert not (tmp_path / "brand").exists()
+
+
 def test_extensoes_diferentes_mesmo_nome_nao_colidem(tmp_path):
-    """Erro 2 do docs/erros-conhecidos.md, resolvido: a extensão de origem entra no nome do .md."""
+    """Erro 2, resolvido: a extensão de origem entra no nome do .md."""
     make_docx(tmp_path, "rel.docx", "# UM\n\nconteudo docx\n")
     html = tmp_path / "rel.html"
     html.write_text("<h1>DOIS</h1><p>conteudo html</p>", encoding="utf-8")
@@ -83,7 +94,7 @@ def test_espelha_arvore_com_uma_raiz_sob_output_dir(tmp_path):
 
 
 def test_find_collisions_detecta_duas_raizes_com_mesmo_nome(tmp_path):
-    """Erro 1 do docs/erros-conhecidos.md, resolvido: duas raízes com `a.docx` colidem sob -o."""
+    """Erro 1, resolvido: duas raízes com `a.docx` colidem sob -o."""
     make_docx(tmp_path / "r1", "a.docx", "# UM\n\nconteudo um\n")
     make_docx(tmp_path / "r2", "a.docx", "# DOIS\n\nconteudo dois\n")
     saida = tmp_path / "saida"
@@ -110,7 +121,7 @@ def test_check_path_nao_reclama_quando_tudo_existe(basic_docx):
 
 
 def test_check_path_lanca_conversion_error_listando_os_ausentes(tmp_path):
-    """Erro 3 do docs/erros-conhecidos.md, resolvido: caminho inexistente para a execução."""
+    """Erro 3, resolvido: caminho inexistente para a execução."""
     docx = make_docx(tmp_path, "a.docx", "# A\n\ntexto\n")
     inexistente = tmp_path / "NAO_EXISTE.docx"
 
@@ -119,7 +130,7 @@ def test_check_path_lanca_conversion_error_listando_os_ausentes(tmp_path):
 
 
 def test_no_media_nao_deixa_link_de_imagem_quebrado(tmp_path):
-    """Erro 11 do docs/erros-conhecidos.md, resolvido: a imagem some, sem link órfão."""
+    """Erro 11, resolvido: a imagem some, sem link órfão."""
     docx = make_docx_with_image(tmp_path, "doc.docx")
     res = convert_file(docx, extract_media=False, overwrite=True)
     conteudo = res.output.read_text(encoding="utf-8")

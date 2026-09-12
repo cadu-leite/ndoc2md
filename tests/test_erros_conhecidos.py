@@ -1,10 +1,9 @@
-"""Regressão para os bugs abertos em docs/erros-conhecidos.md, um por item.
+"""Regressão para os bugs abertos, um por item.
 
 Cada teste é marcado `xfail(strict=True)`: enquanto o bug segue aberto, o teste
 falha do jeito esperado (xfailed).
 Se o bug for corrigido, o teste passa e o `strict=True` transforma isso num erro
-de suíte (XPASS) — sinal para remover o marcador e mover o item para "resolvido"
-em docs/erros-conhecidos.md.
+de suíte (XPASS) — sinal para remover o marcador e mover o item para "resolvido".
 """
 
 from __future__ import annotations
