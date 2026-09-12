@@ -1,0 +1,28 @@
+# Ambiente virtual gerado pelo uv (específico do path — recriar com `uv sync`)
+.venv/
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Empacotamento (gerado por `uv build` / `hatchling`)
+build/
+dist/
+*.egg-info/
+
+# Cache de ferramentas de dev
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Segredos e configuração local
+.env
+
+# Arquivos do SO
+.DS_Store
+
+# Fora do controle de versão por enquanto, por pedido do usuário
+docs/erros-conhecidos.md
