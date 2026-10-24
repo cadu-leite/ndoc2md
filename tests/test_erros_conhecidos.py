@@ -122,17 +122,3 @@ def test_erro_21_supported_extensions_e_imutavel():
 # segue xfail.
 
 
-@requer_pdf
-@pytest.mark.xfail(strict=True, reason="erro 12: desenho vetorial isolado em PDF continua sendo descartado (sem imagem)")
-def test_erro_12_pdf_vetorial_gera_midia(tmp_path):
-    import fitz
-
-    pdf_path = tmp_path / "diagrama.pdf"
-    doc = fitz.open()
-    page = doc.new_page()
-    page.draw_rect(fitz.Rect(50, 50, 200, 150), color=(0, 0, 0), fill=(0.8, 0.1, 0.1))
-    doc.save(pdf_path)
-    doc.close()
-
-    res = convert_file(pdf_path, overwrite=True)
-    assert res.media_dir is not None and any(res.media_dir.iterdir())

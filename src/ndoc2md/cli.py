@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from .converter import (
     ConversionError,
+    PdfSemTexto,
     Result,
     SUPPORTED_EXTENSIONS,
     check_path,
@@ -49,12 +51,65 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true",
         help="apenas listar o que seria convertido",
     )
+    novas = p.add_argument_group("opções novas (desligadas por padrão)")
+    novas.add_argument(
+        "--json", action="store_true",
+        help="uma linha JSON por arquivo no stdout, sem os recados do pymupdf4llm",
+    )
+    novas.add_argument("--nome", help="nome-base do .md, sem extensão (só com um arquivo)")
+    novas.add_argument(
+        "--prefixo-data", dest="prefixo_data", action="store_true",
+        help="começa o nome do .md com a data de hoje (AAAA-MM-DD_)",
+    )
+    novas.add_argument(
+        "--cabecalho", action="store_true",
+        help="começa o .md com o título e uma linha de origem (data, arquivo, sha256, páginas)",
+    )
+    novas.add_argument("--titulo", help="título do cabeçalho (padrão: nome do original)")
+    novas.add_argument(
+        "--sem-html", dest="sem_html", action="store_true",
+        help="saída sem HTML: pandoc gfm-raw_html; no PDF, tira comentários e troca <br>",
+    )
+    novas.add_argument(
+        "--exigir-texto", dest="exigir_texto", action="store_true",
+        help="PDF sem texto (escaneado) não gera .md e sai com código 3",
+    )
+    novas.add_argument(
+        "--apagar-original", dest="apagar_original", action="store_true",
+        help="apaga o original depois da tentativa de conversão, com sucesso ou com falha",
+    )
     p.set_defaults(recursive=True, extract_media=True, clean_toc=False)
     return p
 
 
+def _registro(arquivo, res: Result | None, erro: ConversionError | None) -> dict:
+    """Linha do --json: o resultado de um arquivo."""
+    if res is not None:
+        return {
+            "ok": True,
+            "origem": str(res.source),
+            "saida": str(res.output),
+            "motor": res.engine,
+            "paginas": res.paginas,
+            "sha256": res.sha256,
+            "avisos": list(res.avisos),
+            "midia": str(res.media_dir) if res.media_dir else None,
+            "original_apagado": res.original_apagado,
+        }
+    return {
+        "ok": False,
+        "origem": str(arquivo),
+        "erro": str(erro),
+        "sem_texto": isinstance(erro, PdfSemTexto),
+        "original_apagado": erro.original_apagado,
+    }
+
+
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.nome and len(args.inputs) > 1:
+        print("ERRO: --nome só vale com um arquivo", file=sys.stderr)
+        return 2
 
     if not have_pandoc():
         print(
@@ -74,7 +129,7 @@ def main(argv=None) -> int:
         print("Nenhum arquivo suportado encontrado.", file=sys.stderr)
         return 1
 
-    colisoes = find_collisions(files, args.output_dir)
+    colisoes = find_collisions(files, args.output_dir, prefixo_data=args.prefixo_data)
     if colisoes:
         for dst, srcs in colisoes.items():
             origens = " e ".join(str(s) for s in srcs)
@@ -84,7 +139,7 @@ def main(argv=None) -> int:
             )
         return 2
 
-    ok = fail = 0
+    ok = fail = sem_texto = 0
     for f, root in files:
         if args.dry_run:
             print(f"[dry-run] {f}")
@@ -97,10 +152,29 @@ def main(argv=None) -> int:
                 clean_toc=args.clean_toc,
                 extract_media=args.extract_media,
                 overwrite=args.overwrite,
+                nome=args.nome,
+                prefixo_data=args.prefixo_data,
+                cabecalho=args.cabecalho,
+                titulo=args.titulo,
+                sem_html=args.sem_html,
+                exigir_texto=args.exigir_texto,
+                apagar_original=args.apagar_original,
+                silencioso=args.json,
             )
         except ConversionError as exc:
-            print(f"✗ {f.name}: {exc}", file=sys.stderr)
-            fail += 1
+            if isinstance(exc, PdfSemTexto):
+                sem_texto += 1
+            else:
+                fail += 1
+            if args.json:
+                print(json.dumps(_registro(f, None, exc), ensure_ascii=False))
+            else:
+                print(f"✗ {f.name}: {exc}", file=sys.stderr)
+            continue
+
+        if args.json:
+            print(json.dumps(_registro(f, res, None), ensure_ascii=False))
+            ok += 1
             continue
 
         extra = []
@@ -112,9 +186,11 @@ def main(argv=None) -> int:
         print(f"✓ {res.source.name}  →  {res.output.name}  [{res.engine}]{suffix}")
         ok += 1
 
-    if not args.dry_run:
-        print(f"\nConcluído: {ok} convertido(s), {fail} falha(s).")
-    return 1 if fail else 0
+    if not args.dry_run and not args.json:
+        print(f"\nConcluído: {ok} convertido(s), {fail + sem_texto} falha(s).")
+    if fail:
+        return 1
+    return 3 if sem_texto else 0
 
 
 if __name__ == "__main__":

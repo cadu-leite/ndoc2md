@@ -1,6 +1,6 @@
 [project]
 name = "ndoc2md"
-version = "0.1.0"
+version = "0.2.0"
 description = "Converte documentos (docx, odt, html, rtf, epub, pdf, ...) para Markdown preservando a hierarquia de títulos."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -9,13 +9,16 @@ dependencies = []
 [project.optional-dependencies]
 # Suporte a PDF (pandoc não lê PDF). Instale com: uv sync --extra pdf
 #
-# RESTRIÇÃO DE PLATAFORMA: fixado na série 0.0.x para manter compatibilidade com
-# macOS em CPU Intel (macosx_*_x86_64), que só tem wheel de `pymupdf` nessa faixa.
-# A partir da 1.27.2.1, o pymupdf4llm passa a exigir `pymupdf_layout` -> `onnxruntime`,
-# que NÃO publica wheel para macOS Intel em nenhuma versão do macOS, fazendo
-# `uv sync --extra pdf` falhar.
-# Em Apple Silicon/Linux/Windows pode-se soltar o teto: pdf = ["pymupdf4llm"].
-pdf = ["pymupdf4llm>=0.0.22,<0.1"]
+# Desde a 2.0, o pymupdf traz o módulo pymupdf4llm (o pacote pymupdf4llm 2.0 é vazio).
+# A série 0.0.x do pymupdf4llm perdia o bloco de dados de formulários em caixas
+# (no cartão CNPJ de teste, 69 de 151 palavras chegaram ao .md; com o pymupdf 2.0, 151 de 151).
+#
+# RESTRIÇÕES: o pymupdf 2.x exige Python 3.11+, e ele e o onnxruntime (via pymupdf_layout)
+# não publicam wheel para macOS em CPU Intel (macosx_*_x86_64). Nesses dois casos o extra
+# não instala nada, e o ndoc2md avisa que PDF exige Docker (ver README, seção "macOS Intel").
+pdf = [
+    "pymupdf>=2,<3; python_version >= '3.11' and (sys_platform != 'darwin' or platform_machine != 'x86_64')",
+]
 
 [project.scripts]
 ndoc2md = "ndoc2md.cli:main"

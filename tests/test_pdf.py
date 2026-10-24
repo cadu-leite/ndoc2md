@@ -10,7 +10,7 @@ pytestmark = requer_pdf
 
 
 def test_desenho_vetorial_isolado_gera_aviso(tmp_path):
-    """Erro 12: o conteúdo continua perdido, mas agora com aviso."""
+    """Sem mídia, a página só com desenho vetorial fica vazia no Markdown: tem que avisar."""
     import fitz
 
     pdf = make_pdf(
@@ -20,11 +20,28 @@ def test_desenho_vetorial_isolado_gera_aviso(tmp_path):
             fitz.Rect(50, 50, 200, 150), color=(0, 0, 0), fill=(0.8, 0.1, 0.1)
         ),
     )
-    res = convert_file(pdf, overwrite=True)
+    res = convert_file(pdf, overwrite=True, extract_media=False)
     conteudo = res.output.read_text(encoding="utf-8")
 
     assert "Aviso do ndoc2md" in conteudo
     assert "página 1" in conteudo
+
+
+def test_desenho_vetorial_isolado_vira_imagem(tmp_path):
+    """Erro 12, resolvido com o pymupdf 2.x: o desenho vetorial isolado vira imagem."""
+    import fitz
+
+    pdf = make_pdf(
+        tmp_path,
+        "diagrama.pdf",
+        lambda page: page.draw_rect(
+            fitz.Rect(50, 50, 200, 150), color=(0, 0, 0), fill=(0.8, 0.1, 0.1)
+        ),
+    )
+    res = convert_file(pdf, overwrite=True)
+
+    assert res.media_dir is not None and any(res.media_dir.iterdir())
+    assert "Aviso do ndoc2md" not in res.output.read_text(encoding="utf-8")
 
 
 def test_pdf_so_texto_nao_gera_aviso(tmp_path):
