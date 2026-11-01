@@ -247,6 +247,7 @@ def _convert(
             shutil.rmtree(topo_novo, ignore_errors=True)
         raise
     md, engine, media_dir, paginas = conv.md, conv.motor, conv.media_dir, conv.paginas
+    avisos += conv.avisos
 
     for aviso in avisos:
         md += f"\n\n> **Aviso do ndoc2md:** {aviso}.\n"

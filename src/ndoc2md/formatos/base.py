@@ -18,3 +18,4 @@ class Conversao:
     motor: str
     media_dir: Path | None = None
     paginas: int | None = None
+    avisos: tuple[str, ...] = ()

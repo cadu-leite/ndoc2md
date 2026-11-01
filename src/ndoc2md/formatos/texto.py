@@ -1,6 +1,10 @@
-"""Documentos de texto: formatos de escritório e de marcação lidos pelo pandoc.
+"""Documentos de texto.
 
-O pandoc preserva a hierarquia de títulos a partir dos estilos "Título 1/2/3" do Word.
+- Formatos de escritório e de marcação lidos pelo pandoc, que preserva a hierarquia de
+  títulos a partir dos estilos "Título 1/2/3" do Word.
+- `.sxw` (Writer do OpenOffice 1.x), que o pandoc não lê: o XML é lido direto, como nas
+  apresentações e planilhas (ver `odf.py`). O título sai do nível de estrutura de
+  tópicos (`text:h`).
 """
 
 from __future__ import annotations
@@ -12,6 +16,7 @@ from pathlib import Path
 
 from ..erros import ConversionError
 from .base import Conversao
+from .odf import Leitor, Pacote, montar
 
 # extensão -> formato de entrada do pandoc
 PANDOC_FORMATS = {
@@ -104,4 +109,16 @@ def converter_pandoc(
     return Conversao(md, "pandoc", media_dir)
 
 
+def converter_sxw(
+    src: Path, ext: str, dst_dir: Path, media_base: str, *,
+    extract_media: bool, sem_html: bool, silencioso: bool,
+) -> Conversao:
+    """Converte `.sxw`; a saída não tem HTML, então `sem_html` não muda nada."""
+    with Pacote(src) as pacote:
+        leitor = Leitor(pacote, dst_dir, media_base, extract_media)
+        blocos = leitor.blocos(pacote.corpo("text"))
+    return Conversao(montar(blocos, leitor), "odf", leitor.media_dir, None, tuple(leitor.avisos()))
+
+
 CONVERSORES = {ext: converter_pandoc for ext in PANDOC_FORMATS}
+CONVERSORES[".sxw"] = converter_sxw
