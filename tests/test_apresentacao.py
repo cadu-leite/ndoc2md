@@ -116,6 +116,19 @@ def test_no_media_tira_a_imagem_sem_criar_pasta(odp):
     assert not (odp.parent / "apres.odp_media").exists()
 
 
+def test_placeholder_com_texto_entra(tmp_path):
+    """Nos modelos do Impress (ex.: Grey_Elegant.otp), o título é placeholder e tem texto."""
+    corpo = (
+        '<draw:page><draw:frame presentation:class="title" presentation:placeholder="true">'
+        "<draw:text-box><text:p>Grey Elegant</text:p></draw:text-box></draw:frame>"
+        '<draw:frame presentation:class="subtitle" presentation:placeholder="true">'
+        "<draw:text-box><text:p>Lorem Ipsum</text:p></draw:text-box></draw:frame></draw:page>"
+    )
+    odp = make_odf(tmp_path, "m.odp", corpo)
+    md = convert_file(odp).output.read_text(encoding="utf-8")
+    assert md == "## Slide 1: Grey Elegant\n\nLorem Ipsum\n"
+
+
 def test_slide_oculto_e_marcado(tmp_path):
     estilos = (
         '<style:style style:name="dp1" style:family="drawing-page">'

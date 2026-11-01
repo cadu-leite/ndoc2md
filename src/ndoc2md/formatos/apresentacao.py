@@ -21,11 +21,14 @@ def _oculto(pacote: Pacote, slide) -> bool:
 
 
 def _formas(slide):
-    """Formas do slide que entram no corpo: sem notas, sem placeholder vazio."""
+    """Formas do slide que entram no corpo: sem notas e sem as classes do modelo.
+
+    `presentation:placeholder="true"` não serve de filtro: num modelo do Impress, o
+    placeholder pode trazer texto, e o LibreOffice imprime esse texto. Placeholder vazio
+    não gera bloco.
+    """
     for forma in slide:
         if forma.tag == "presentation:notes":
-            continue
-        if forma.get("presentation:placeholder") == "true":
             continue
         if forma.get("presentation:class") in _CLASSES_IGNORADAS:
             continue
