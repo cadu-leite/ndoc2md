@@ -14,9 +14,9 @@ import pytest
 
 from conftest import make_docx_with_image, make_pdf, requer_pandoc, requer_pdf
 
-from ndoc2md import converter
 from ndoc2md.cli import main
 from ndoc2md.converter import ConversionError, PdfSemTexto, convert_file, resolve_dst
+from ndoc2md.formatos import pdf as formato_pdf
 
 TEXTO = "Contrato de prestação de serviços entre as partes."
 
@@ -76,7 +76,7 @@ def test_cabecalho_com_titulo_origem_e_sha(tmp_path):
 
 def test_limpar_html_do_pdf():
     md = "a\n<!-- Start of picture text -->\nX<br>Y<br/>\n<!-- End of picture text -->\nb"
-    assert converter._limpar_html(md) == "a\nX\nY\n\nb"
+    assert formato_pdf._limpar_html(md) == "a\nX\nY\n\nb"
 
 
 @requer_pandoc
@@ -159,14 +159,14 @@ def test_apagar_original_nao_apaga_extensao_nao_suportada(tmp_path):
 
 
 def test_mensagem_sem_pdf_no_macos_intel(monkeypatch):
-    monkeypatch.setattr(converter.sys, "platform", "darwin")
-    monkeypatch.setattr(converter.platform, "machine", lambda: "x86_64")
-    assert "Docker" in converter._mensagem_sem_pdf()
+    monkeypatch.setattr(formato_pdf.sys, "platform", "darwin")
+    monkeypatch.setattr(formato_pdf.platform, "machine", lambda: "x86_64")
+    assert "Docker" in formato_pdf._mensagem_sem_pdf()
 
 
 def test_mensagem_sem_pdf_no_linux_continua_a_mesma(monkeypatch):
-    monkeypatch.setattr(converter.sys, "platform", "linux")
-    assert converter._mensagem_sem_pdf() == "suporte a PDF não instalado — rode: uv sync --extra pdf"
+    monkeypatch.setattr(formato_pdf.sys, "platform", "linux")
+    assert formato_pdf._mensagem_sem_pdf() == "suporte a PDF não instalado — rode: uv sync --extra pdf"
 
 
 # --- CLI ----------------------------------------------------------------------
