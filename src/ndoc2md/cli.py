@@ -8,6 +8,7 @@ import sys
 
 from .converter import (
     ConversionError,
+    PANDOC_FORMATS,
     PdfSemTexto,
     Result,
     SUPPORTED_EXTENSIONS,
@@ -111,13 +112,6 @@ def main(argv=None) -> int:
         print("ERRO: --nome só vale com um arquivo", file=sys.stderr)
         return 2
 
-    if not have_pandoc():
-        print(
-            "ERRO: pandoc não encontrado no PATH. Instale com: brew install pandoc",
-            file=sys.stderr,
-        )
-        return 2
-
     try:
         check_path(args.inputs)
     except ConversionError as exc:
@@ -128,6 +122,14 @@ def main(argv=None) -> int:
     if not files:
         print("Nenhum arquivo suportado encontrado.", file=sys.stderr)
         return 1
+
+    # O pandoc só é exigido quando o lote tem um formato que passa por ele.
+    if not have_pandoc() and any(f.suffix.lower() in PANDOC_FORMATS for f, _ in files):
+        print(
+            "ERRO: pandoc não encontrado no PATH. Instale com: brew install pandoc",
+            file=sys.stderr,
+        )
+        return 2
 
     colisoes = find_collisions(files, args.output_dir, prefixo_data=args.prefixo_data)
     if colisoes:

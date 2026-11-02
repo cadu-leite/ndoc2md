@@ -7,10 +7,12 @@ Conversor de documentos para **Markdown** preservando a **hierarquia de títulos
 - `.pdf` → via **pymupdf4llm** (extra opcional `pdf`; o pandoc não lê PDF).
   Figuras e diagramas do PDF são extraídos como PNG para `<nome>_media/`
   (com link relativo no `.md`), a menos que se use `--no-media`.
+- Apresentações (`.odp`, `.sxi`), planilhas (`.ods`, `.sxc`) e texto do OpenOffice 1.x (`.sxw`) → leitura direta do XML, sem dependência extra.
+  Ver [Apresentações, planilhas e OpenOffice 1.x](#apresentações-planilhas-e-openoffice-1x).
 
 ## Requisitos
 
-- [`pandoc`](https://pandoc.org) no PATH (`brew install pandoc`)
+- [`pandoc`](https://pandoc.org) no PATH (`brew install pandoc`), para os formatos lidos pelo pandoc
 - [`uv`](https://docs.astral.sh/uv/)
 
 ## Instalação
@@ -106,6 +108,43 @@ Três observações:
 - Com -o e uma pasta de entrada, a estrutura de subpastas é **espelhada** no
   destino (não achatada) — dois arquivos de mesmo nome em subpastas
   diferentes não colidem.
+
+## Apresentações, planilhas e OpenOffice 1.x
+
+O pandoc só lê o `.odt`.
+Os formatos abaixo são lidos direto do `content.xml` do pacote, com a biblioteca padrão do Python (`zipfile` e `xml.etree`).
+O motor aparece como `odf` na saída do CLI e no `--json`.
+
+| Extensão | Programa                               | Estrutura do `.md`                                               |
+|----------|----------------------------------------|------------------------------------------------------------------|
+| `.odp`   | Impress (OpenDocument)                 | `## Slide N: título`, corpo do slide, notas do apresentador      |
+| `.sxi`   | Impress do OpenOffice 1.x              | igual ao `.odp`                                                  |
+| `.ods`   | Calc (OpenDocument)                    | `## nome da aba` e uma tabela GFM por aba                        |
+| `.sxc`   | Calc do OpenOffice 1.x                 | igual ao `.ods`                                                  |
+| `.sxw`   | Writer do OpenOffice 1.x               | títulos `#` pelo nível de tópico, listas, tabelas, notas de rodapé |
+
+Apresentação:
+
+- O título vem do quadro de título do layout (`presentation:class="title"`); slide sem esse quadro sai como `## Slide N`.
+- O corpo segue a ordem de empilhamento do arquivo, não a posição na tela.
+- Número de página, data, rodapé e placeholder vazio ficam de fora.
+- Texto do slide mestre (o fundo comum a todos os slides) fica de fora.
+- Slide oculto sai como `## Slide N (oculto): título`.
+- `paginas` (no `--json` e no `--cabecalho`) recebe o número de slides.
+
+Planilha:
+
+- A célula sai com o texto exibido: o número já formatado e o resultado da fórmula, gravados no arquivo na hora em que ele foi salvo.
+- As linhas e colunas vazias das bordas saem; a primeira linha com conteúdo vira o cabeçalho da tabela.
+- Célula mesclada ocupa a primeira coluna; as colunas cobertas ficam vazias.
+- Aba oculta sai como `## nome (oculta)`; aba vazia sai com `*(aba vazia)*`.
+
+Para todos esses formatos:
+
+- Imagem do pacote vai para `<nome>.<ext>_media/`, com link relativo; `--no-media` tira a imagem do `.md`.
+- Gráfico, fórmula ou objeto OLE incorporado não vira texto; o `.md` termina com um aviso que conta esses objetos por slide ou por aba.
+- `--sem-html` não muda nada, porque a saída já não tem HTML.
+- Esses formatos convertem sem o pandoc no PATH; o CLI só exige o pandoc quando o lote tem um formato lido por ele.
 
 ## macOS Intel (Docker)
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import make_docx, requer_pandoc
+from conftest import make_docx, make_odf, requer_pandoc
 
 from ndoc2md.converter import gather
 
@@ -47,3 +47,10 @@ def test_mesmo_arquivo_com_grafias_de_caminho_diferentes_nao_duplica(tmp_path):
     caminho_com_volta = tmp_path / "sub" / ".." / "sub" / "b.docx"
     achados = gather([str(docx), str(caminho_com_volta)])
     assert [f for f, _ in achados] == [docx]
+
+
+def test_formatos_do_openoffice_entram_na_lista(tmp_path):
+    for nome in ("a.odp", "b.ods", "c.sxi", "d.sxc", "e.sxw"):
+        make_odf(tmp_path, nome, "")
+    achados = gather([str(tmp_path)])
+    assert [f.name for f, _ in achados] == ["a.odp", "b.ods", "c.sxi", "d.sxc", "e.sxw"]

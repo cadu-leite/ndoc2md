@@ -1,10 +1,12 @@
-"""Fixtures compartilhadas: geram .docx (via pandoc) e imagens PNG sem depender do Word ou do Pillow."""
+"""Fixtures compartilhadas: geram .docx (via pandoc), pacotes OpenDocument e OpenOffice 1.x
+(zip montado aqui) e imagens PNG, sem depender do Word, do LibreOffice ou do Pillow."""
 
 from __future__ import annotations
 
 import shutil
 import struct
 import subprocess
+import zipfile
 import zlib
 from pathlib import Path
 
@@ -79,3 +81,92 @@ def make_pdf(pasta: Path, nome: str, desenhar) -> Path:
     doc.save(pdf)
     doc.close()
     return pdf
+
+
+_NS_ODF = {
+    "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+    "style": "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
+    "text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+    "table": "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
+    "draw": "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0",
+    "presentation": "urn:oasis:names:tc:opendocument:xmlns:presentation:1.0",
+    "svg": "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0",
+    "fo": "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
+    "xlink": "http://www.w3.org/1999/xlink",
+}
+_NS_OOO1 = {
+    "office": "http://openoffice.org/2000/office",
+    "style": "http://openoffice.org/2000/style",
+    "text": "http://openoffice.org/2000/text",
+    "table": "http://openoffice.org/2000/table",
+    "draw": "http://openoffice.org/2000/drawing",
+    "presentation": "http://openoffice.org/2000/presentation",
+    "svg": "http://www.w3.org/2000/svg",
+    "fo": "http://www.w3.org/1999/XSL/Format",
+    "xlink": "http://www.w3.org/1999/xlink",
+}
+# extensão -> (mimetype, elemento que embrulha o corpo no ODF; o 1.x não embrulha)
+_TIPOS_ODF = {
+    ".odp": ("application/vnd.oasis.opendocument.presentation", "presentation"),
+    ".ods": ("application/vnd.oasis.opendocument.spreadsheet", "spreadsheet"),
+    ".odt": ("application/vnd.oasis.opendocument.text", "text"),
+    ".sxi": ("application/vnd.sun.xml.impress", None),
+    ".sxc": ("application/vnd.sun.xml.calc", None),
+    ".sxw": ("application/vnd.sun.xml.writer", None),
+}
+
+
+def make_odf(
+    pasta: Path, nome: str, corpo: str, *, estilos: str = "", arquivos: dict[str, bytes] | None = None
+) -> Path:
+    """Pacote ODF, ou OpenOffice 1.x, conforme a extensão de `nome`.
+
+    `corpo` vai dentro de `office:body` (no ODF, dentro de `office:presentation`,
+    `office:spreadsheet` ou `office:text`); `estilos` vai em `office:automatic-styles`;
+    `arquivos` entra no zip como está (ex.: `{"Pictures/a.png": ...}`). O `mimetype` é o
+    primeiro item do zip, sem compressão, como o LibreOffice grava.
+    """
+    pasta.mkdir(parents=True, exist_ok=True)
+    mimetype, embrulho = _TIPOS_ODF[Path(nome).suffix]
+    legado = embrulho is None
+    ns = _NS_OOO1 if legado else _NS_ODF
+    xmlns = " ".join(f'xmlns:{p}="{u}"' for p, u in ns.items())
+    if embrulho:
+        corpo = f"<office:{embrulho}>{corpo}</office:{embrulho}>"
+    versao = "" if legado else ' office:version="1.3"'
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f"<office:document-content {xmlns}{versao}>"
+        f"<office:automatic-styles>{estilos}</office:automatic-styles>"
+        f"<office:body>{corpo}</office:body></office:document-content>"
+    )
+    arquivos = arquivos or {}
+    ns_manifest = (
+        "http://openoffice.org/2001/manifest" if legado
+        else "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"
+    )
+    entradas = "".join(
+        f'<manifest:file-entry manifest:media-type="{tipo}" manifest:full-path="{caminho}"/>'
+        for caminho, tipo in [("/", mimetype), ("content.xml", "text/xml")]
+        + [(c, "image/png") for c in arquivos]
+    )
+    manifest = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<manifest:manifest xmlns:manifest="{ns_manifest}">{entradas}</manifest:manifest>'
+    )
+    destino = pasta / nome
+    with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(zipfile.ZipInfo("mimetype"), mimetype, compress_type=zipfile.ZIP_STORED)
+        z.writestr("content.xml", content)
+        z.writestr("META-INF/manifest.xml", manifest)
+        for caminho, dados in arquivos.items():
+            z.writestr(caminho, dados)
+    return destino
+
+
+def png_bytes(color: tuple[int, int, int] = (200, 30, 30)) -> bytes:
+    """Bytes de um PNG válido (o mesmo de `make_png`, sem gravar arquivo)."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        return make_png(Path(tmp) / "x.png", color).read_bytes()
