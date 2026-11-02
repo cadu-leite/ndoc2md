@@ -12,7 +12,7 @@ Conversor de documentos para **Markdown** preservando a **hierarquia de títulos
 
 ## Requisitos
 
-- [`pandoc`](https://pandoc.org) no PATH (`brew install pandoc`)
+- [`pandoc`](https://pandoc.org) no PATH (`brew install pandoc`), para os formatos lidos pelo pandoc
 - [`uv`](https://docs.astral.sh/uv/)
 
 ## Instalação
@@ -144,7 +144,7 @@ Para todos esses formatos:
 - Imagem do pacote vai para `<nome>.<ext>_media/`, com link relativo; `--no-media` tira a imagem do `.md`.
 - Gráfico, fórmula ou objeto OLE incorporado não vira texto; o `.md` termina com um aviso que conta esses objetos por slide ou por aba.
 - `--sem-html` não muda nada, porque a saída já não tem HTML.
-- O CLI exige o pandoc no PATH mesmo quando só há esses formatos na entrada.
+- Esses formatos convertem sem o pandoc no PATH; o CLI só exige o pandoc quando o lote tem um formato lido por ele.
 
 ## macOS Intel (Docker)
 

@@ -22,8 +22,12 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 
 from ..erros import ConversionError
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 _PREFIXOS = {
     # ODF (OASIS)
@@ -135,7 +139,7 @@ class Pacote:
         if self._zip is not None:
             self._zip.close()
 
-    def __enter__(self) -> Pacote:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_exc) -> None:
